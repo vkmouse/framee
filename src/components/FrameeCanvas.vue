@@ -74,7 +74,6 @@ defineExpose({ canvasEl, doRender })
       height="1350"
       aria-label="圖片排版預覽畫布"
     ></canvas>
-    <span class="framee-canvas__label">1080 × 1350 px</span>
     <input
       ref="fileInput"
       type="file"
@@ -99,16 +98,6 @@ defineExpose({ canvasEl, doRender })
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.framee-canvas__label {
-  position: absolute;
-  bottom: 6px;
-  right: 8px;
-  font-size: 9px;
-  color: rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.03em;
-  pointer-events: none;
 }
 
 .framee-canvas__file-input {

@@ -65,23 +65,6 @@ async function download() {
   document.body.removeChild(link)
 }
 
-function onDrawerEnter(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = '0'
-  void htmlEl.offsetHeight
-  htmlEl.style.height = htmlEl.scrollHeight + 'px'
-}
-
-function onDrawerAfterEnter(el: Element) {
-  ;(el as HTMLElement).style.height = ''
-}
-
-function onDrawerLeave(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = htmlEl.scrollHeight + 'px'
-  void htmlEl.offsetHeight
-  htmlEl.style.height = '0'
-}
 </script>
 
 <template>
@@ -94,22 +77,13 @@ function onDrawerLeave(el: Element) {
 
     <AppBottomBar />
 
-    <Transition
-      name="drawer"
-      @enter="onDrawerEnter"
-      @after-enter="onDrawerAfterEnter"
-      @leave="onDrawerLeave"
-    >
-      <div v-if="state.openDrawer" class="framee-view__drawer">
-        <LayoutDrawer v-if="state.openDrawer === 'layout'" />
-        <BorderDrawer v-else-if="state.openDrawer === 'border'" />
-        <ColorDrawer v-else-if="state.openDrawer === 'color'" />
-      </div>
-    </Transition>
-
-    <div class="framee-view__home-ind">
-      <div class="framee-view__home-bar"></div>
+    <div v-if="state.openDrawer" class="framee-view__drawer">
+      <LayoutDrawer v-if="state.openDrawer === 'layout'" />
+      <BorderDrawer v-else-if="state.openDrawer === 'border'" />
+      <ColorDrawer v-else-if="state.openDrawer === 'color'" />
     </div>
+
+    <div class="framee-view__home-ind"></div>
   </div>
 </template>
 
@@ -126,37 +100,19 @@ function onDrawerLeave(el: Element) {
   display: flex;
   align-items: center;
   padding: 10px 14px;
+  background: #E2E2E2;
 }
 
 .framee-view__drawer {
+  height: var(--drawer-height);
   overflow: hidden;
   background: var(--color-surface);
   border-top: 0.5px solid rgba(0, 0, 0, 0.08);
-}
-
-/* Drawer transition */
-.drawer-enter-active {
-  transition: height var(--drawer-anim-open);
-  overflow: hidden;
-}
-
-.drawer-leave-active {
-  transition: height var(--drawer-anim-close);
-  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .framee-view__home-ind {
   height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-}
-
-.framee-view__home-bar {
-  width: 100px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.15);
 }
 </style>
