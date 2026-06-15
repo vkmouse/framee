@@ -48,8 +48,6 @@ export function bindGestures(
   let touchState: TouchState = null
 
   function onTouchStart(e: TouchEvent) {
-    e.preventDefault()
-
     if (e.touches.length === 1) {
       const touch = e.touches[0]
       if (!touch) return
@@ -59,10 +57,12 @@ export function bindGestures(
       const hasImage = !!imageData[state.activeLayout]?.[slot]
 
       if (!hasImage) {
-        onFileRequest(slot)
+        // Do not preventDefault — let browser synthesize a click event,
+        // which onClick will handle to trigger the file picker reliably.
         return
       }
 
+      e.preventDefault()
       state.activeSlot = slot
       onRender()
       touchState = {
@@ -72,6 +72,7 @@ export function bindGestures(
         startY: touch.clientY,
       }
     } else if (e.touches.length === 2) {
+      e.preventDefault()
       if (state.activeSlot === null) return
       const t1 = e.touches[0]
       const t2 = e.touches[1]
@@ -86,6 +87,15 @@ export function bindGestures(
         startDist: dist,
         initScale: slotData.scale,
       }
+    }
+  }
+
+  function onClick(e: MouseEvent) {
+    const slot = getSlotAt(e.clientX, e.clientY, canvas, state)
+    if (slot < 0) return
+    const hasImage = !!imageData[state.activeLayout]?.[slot]
+    if (!hasImage) {
+      onFileRequest(slot)
     }
   }
 
@@ -132,10 +142,12 @@ export function bindGestures(
   canvas.addEventListener('touchstart', onTouchStart, { passive: false })
   canvas.addEventListener('touchmove', onTouchMove, { passive: false })
   canvas.addEventListener('touchend', onTouchEnd, { passive: true })
+  canvas.addEventListener('click', onClick)
 
   return () => {
     canvas.removeEventListener('touchstart', onTouchStart)
     canvas.removeEventListener('touchmove', onTouchMove)
     canvas.removeEventListener('touchend', onTouchEnd)
+    canvas.removeEventListener('click', onClick)
   }
 }
