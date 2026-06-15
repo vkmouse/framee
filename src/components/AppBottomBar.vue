@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useCanvasState } from '../composables/useCanvasState'
-import { iconLayout, iconBorder, iconPalette } from '../utils/icons'
+import { iconLayout, iconBorder } from '../utils/icons'
 
-type DrawerType = 'layout' | 'border' | 'color'
+type DrawerType = 'layout' | 'border'
 
 const state = useCanvasState()
 
@@ -12,8 +12,7 @@ function toggle(type: DrawerType) {
 
 const buttons: { type: DrawerType; icon: string; label: string }[] = [
   { type: 'layout', icon: iconLayout, label: '版型' },
-  { type: 'border', icon: iconBorder, label: '邊框' },
-  { type: 'color', icon: iconPalette, label: '顏色' },
+  { type: 'border', icon: iconBorder, label: '邊框樣式' },
 ]
 </script>
 

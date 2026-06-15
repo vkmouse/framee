@@ -41,15 +41,33 @@ export function render(
       ctx.drawImage(data.img, cx - drawW / 2, cy - drawH / 2, drawW, drawH)
       ctx.restore()
     } else {
-      ctx.fillStyle = '#cccccc'
+      ctx.fillStyle = '#d0d0d0'
       ctx.fillRect(slot.x, slot.y, slot.w, slot.h)
 
       if (!forExport) {
-        ctx.fillStyle = 'rgba(0,0,0,0.25)'
-        ctx.font = '80px sans-serif'
+        const cx = slot.x + slot.w / 2
+        const cy = slot.y + slot.h / 2
+
+        // Plus icon circle
+        const r = 64
+        ctx.beginPath()
+        ctx.arc(cx, cy - 60, r, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(0,0,0,0.12)'
+        ctx.fill()
+
+        // Plus sign
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'
+        ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText('+', slot.x + slot.w / 2, slot.y + slot.h / 2)
+        ctx.fillText('+', cx, cy - 60)
+
+        // Hint text
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'
+        ctx.font = '400 44px -apple-system, BlinkMacSystemFont, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        ctx.fillText('點擊加入照片', cx, cy + 24)
       }
     }
 

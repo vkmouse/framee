@@ -84,6 +84,10 @@ function select(id: number) {
 <style scoped>
 .layout-drawer {
   padding: 14px var(--spacing-lg) var(--spacing-lg);
+  height: var(--drawer-height);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .layout-drawer__handle {
@@ -91,7 +95,8 @@ function select(id: number) {
   height: 3px;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.15);
-  margin: 0 auto 14px;
+  margin: 0 auto 12px;
+  flex-shrink: 0;
 }
 
 .layout-drawer__title {
@@ -101,6 +106,7 @@ function select(id: number) {
   letter-spacing: 0.05em;
   margin-bottom: 12px;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .layout-drawer__scroll {
@@ -108,6 +114,8 @@ function select(id: number) {
   gap: var(--spacing-sm);
   overflow-x: auto;
   padding-bottom: 2px;
+  flex: 1;
+  align-items: flex-start;
 }
 
 .layout-drawer__scroll::-webkit-scrollbar {

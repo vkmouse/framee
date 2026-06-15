@@ -5,7 +5,7 @@ export interface CanvasState {
   borderColor: string
   activeLayout: number
   activeSlot: number | null
-  openDrawer: 'layout' | 'border' | 'color' | null
+  openDrawer: 'layout' | 'border' | null
 }
 
 const state = reactive<CanvasState>({

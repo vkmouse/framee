@@ -5,7 +5,6 @@ import FrameeCanvas from '../components/FrameeCanvas.vue'
 import AppBottomBar from '../components/AppBottomBar.vue'
 import LayoutDrawer from '../components/LayoutDrawer.vue'
 import BorderDrawer from '../components/BorderDrawer.vue'
-import ColorDrawer from '../components/ColorDrawer.vue'
 import { useCanvasState } from '../composables/useCanvasState'
 import { useImageStore } from '../composables/useImageStore'
 import { render } from '../composables/useCanvasRenderer'
@@ -46,7 +45,6 @@ async function download() {
         // Non-abort error: fall through to anchor download
       }
     } else {
-      // File sharing not supported — try sharing URL if available, else fall through
       try {
         await navigator.share({ title: 'Framee 排版圖', url: window.location.href })
         return
@@ -64,7 +62,6 @@ async function download() {
   link.click()
   document.body.removeChild(link)
 }
-
 </script>
 
 <template>
@@ -77,11 +74,12 @@ async function download() {
 
     <AppBottomBar />
 
-    <div v-if="state.openDrawer" class="framee-view__drawer">
-      <LayoutDrawer v-if="state.openDrawer === 'layout'" />
-      <BorderDrawer v-else-if="state.openDrawer === 'border'" />
-      <ColorDrawer v-else-if="state.openDrawer === 'color'" />
-    </div>
+    <Transition name="drawer">
+      <div v-if="state.openDrawer" class="framee-view__drawer">
+        <LayoutDrawer v-if="state.openDrawer === 'layout'" />
+        <BorderDrawer v-else-if="state.openDrawer === 'border'" />
+      </div>
+    </Transition>
 
     <div class="framee-view__home-ind"></div>
   </div>
@@ -114,5 +112,17 @@ async function download() {
 .framee-view__home-ind {
   height: 30px;
   flex-shrink: 0;
+}
+
+/* Drawer slide-up animation */
+.drawer-enter-active {
+  transition: transform var(--drawer-anim-open);
+}
+.drawer-leave-active {
+  transition: transform var(--drawer-anim-close);
+}
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateY(100%);
 }
 </style>
