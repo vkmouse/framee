@@ -1,0 +1,35 @@
+:root {
+  /* 顏色 */
+  --color-bg:           #f7f7f5;
+  --color-surface:      #ffffff;
+  --color-text-main:    #1a1a1a;
+  --color-text-muted:   #888888;
+  --color-border:       rgba(0, 0, 0, 0.10);
+  --color-border-em:    rgba(0, 0, 0, 0.20);
+  --color-action:       #1a1a1a;
+  --color-action-text:  #ffffff;
+
+  /* 間距 */
+  --spacing-xs:  6px;
+  --spacing-sm:  8px;
+  --spacing-md:  14px;
+  --spacing-lg:  16px;
+
+  /* 圓角 */
+  --radius-sm:   8px;
+  --radius-md:   14px;
+  --radius-pill: 20px;
+
+  /* 字體大小 */
+  --font-size-label: 10px;
+  --font-size-sm:    11px;
+  --font-size-btn:   12px;
+  --font-size-app:   19px;
+
+  /* 版面高度 */
+  --header-height: 52px;
+
+  /* 動畫 */
+  --drawer-anim-open:  320ms cubic-bezier(0.4, 0, 0.2, 1);
+  --drawer-anim-close: 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
