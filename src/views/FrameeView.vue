@@ -57,11 +57,13 @@ function getVideoSlots(): HTMLVideoElement[] {
     .map((d) => d.media as HTMLVideoElement)
 } 
 
+/** Export is mp4 only (webm can't be played on phones / saved to the iOS photo library). */
 function pickRecorderMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return ''
   const candidates = [
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
+    'video/mp4;codecs=avc1.640028', // H.264 High
+    'video/mp4;codecs=avc1.42E01E', // H.264 Baseline
+    'video/mp4;codecs=avc1',
     'video/mp4',
   ]
   return candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
@@ -83,7 +85,7 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
 
   const mimeType = pickRecorderMimeType()
   if (!mimeType) {
-    alert('這個瀏覽器不支援匯出影片，請改用最新版 Chrome 或 Safari')
+    alert('這個瀏覽器不支援匯出 MP4 影片，請更新 iOS / Safari 或改用最新版 Chrome（126 以上）')
     return
   }
 
@@ -103,7 +105,10 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
     )
 
     const stream = canvas.captureStream(30)
-    const recorder = new MediaRecorder(stream, { mimeType })
+    const recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 8_000_000, // 1080×1350 @ 30fps; default bitrate looks blocky
+    })
     const chunks: BlobPart[] = []
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.push(e.data)
@@ -130,8 +135,7 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
     tick()
 
     const blob = await recordingDone
-    const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
-    await shareOrDownload(blob, `framee_layout.${ext}`, mimeType.split(';')[0]!, 'Framee 排版影片')
+    await shareOrDownload(blob, 'framee_layout.mp4', 'video/mp4', 'Framee 排版影片')
   } finally {
     videos.forEach((v) => {
       v.pause()
