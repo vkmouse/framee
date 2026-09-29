@@ -1,6 +1,6 @@
 import type { CanvasState } from './useCanvasState'
 import type { SlotData } from './useImageStore'
-import { getSlots } from '../utils/layout'
+import { getSlots, getReplaceButtonRect, pointInRect } from '../utils/layout'
 import { getCanvasScale } from './useCanvasRenderer'
 
 type ImageDataMap = Record<number, Record<number, SlotData>>
@@ -38,6 +38,29 @@ function getSlotAt(
   )
 }
 
+/** Returns the active slot index if the point hits its "換照片" button, otherwise -1. */
+function getReplaceButtonSlotAt(
+  clientX: number,
+  clientY: number,
+  canvas: HTMLCanvasElement,
+  state: CanvasState,
+  imageData: ImageDataMap,
+): number {
+  const active = state.activeSlot
+  if (active === null) return -1
+  if (!imageData[state.activeLayout]?.[active]) return -1
+
+  const slot = getSlots(state.activeLayout, state.borderPx)[active]
+  if (!slot) return -1
+
+  const rect = canvas.getBoundingClientRect()
+  const scale = getCanvasScale(canvas)
+  const cx = (clientX - rect.left) * scale
+  const cy = (clientY - rect.top) * scale
+
+  return pointInRect(cx, cy, getReplaceButtonRect(slot)) ? active : -1
+}
+
 export function bindGestures(
   canvas: HTMLCanvasElement,
   state: CanvasState,
@@ -46,11 +69,20 @@ export function bindGestures(
   onRender: () => void,
 ): () => void {
   let touchState: TouchState = null
+  // True while a finger is down on the "換照片" button, so we don't start a drag
+  // and don't block the synthesized click that opens the file picker.
+  let buttonTouch = false
 
   function onTouchStart(e: TouchEvent) {
     if (e.touches.length === 1) {
       const touch = e.touches[0]
       if (!touch) return
+
+      if (getReplaceButtonSlotAt(touch.clientX, touch.clientY, canvas, state, imageData) >= 0) {
+        buttonTouch = true
+        return
+      }
+
       const slot = getSlotAt(touch.clientX, touch.clientY, canvas, state)
       if (slot < 0) return
 
@@ -91,15 +123,36 @@ export function bindGestures(
   }
 
   function onClick(e: MouseEvent) {
+    // Tap on the "換照片" button of the selected slot → open file picker to replace.
+    const buttonSlot = getReplaceButtonSlotAt(e.clientX, e.clientY, canvas, state, imageData)
+    if (buttonSlot >= 0) {
+      onFileRequest(buttonSlot)
+      return
+    }
+
     const slot = getSlotAt(e.clientX, e.clientY, canvas, state)
-    if (slot < 0) return
+
+    // Tap on the border / gap between slots → deselect.
+    if (slot < 0) {
+      if (state.activeSlot !== null) {
+        state.activeSlot = null
+        onRender()
+      }
+      return
+    }
+
     const hasImage = !!imageData[state.activeLayout]?.[slot]
     if (!hasImage) {
       onFileRequest(slot)
+    } else if (state.activeSlot !== slot) {
+      // Mouse click on a filled slot (touch selects in touchstart) → select it.
+      state.activeSlot = slot
+      onRender()
     }
   }
 
   function onTouchMove(e: TouchEvent) {
+    if (buttonTouch) return
     e.preventDefault()
     if (!touchState) return
 
@@ -137,6 +190,7 @@ export function bindGestures(
 
   function onTouchEnd() {
     touchState = null
+    buttonTouch = false
   }
 
   canvas.addEventListener('touchstart', onTouchStart, { passive: false })

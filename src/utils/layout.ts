@@ -56,6 +56,26 @@ export function getSlots(layoutId: number, b: number): Slot[] {
   }
 }
 
+const REPLACE_BTN_W = 300
+const REPLACE_BTN_H = 120
+const REPLACE_BTN_MARGIN = 36
+
+/** Rect of the "換照片" button, anchored at the bottom center of a slot. */
+export function getReplaceButtonRect(slot: Slot): Slot {
+  const w = Math.min(REPLACE_BTN_W, slot.w - 2 * REPLACE_BTN_MARGIN)
+  const h = Math.min(REPLACE_BTN_H, slot.h - 2 * REPLACE_BTN_MARGIN)
+  return {
+    x: slot.x + (slot.w - w) / 2,
+    y: slot.y + slot.h - h - REPLACE_BTN_MARGIN,
+    w,
+    h,
+  }
+}
+
+export function pointInRect(px: number, py: number, r: Slot): boolean {
+  return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h
+}
+
 export function calcCoverScale(
   imgW: number,
   imgH: number,

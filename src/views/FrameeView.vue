@@ -68,7 +68,7 @@ async function download() {
   <div class="framee-view">
     <AppTopBar :on-download="download" />
 
-    <div class="framee-view__canvas-wrap">
+    <div class="framee-view__canvas-wrap" @click.self="state.activeSlot = null">
       <FrameeCanvas ref="canvasRef" />
     </div>
 

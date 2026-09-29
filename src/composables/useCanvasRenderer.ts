@@ -1,6 +1,6 @@
 import type { CanvasState } from './useCanvasState'
 import type { SlotData } from './useImageStore'
-import { getSlots } from '../utils/layout'
+import { getSlots, getReplaceButtonRect, type Slot } from '../utils/layout'
 
 type ImageDataMap = Record<number, Record<number, SlotData>>
 
@@ -75,8 +75,32 @@ export function render(
       ctx.strokeStyle = 'rgba(0,0,0,0.8)'
       ctx.lineWidth = 8
       ctx.strokeRect(slot.x + 4, slot.y + 4, slot.w - 8, slot.h - 8)
+
+      if (data) drawReplaceButton(ctx, getReplaceButtonRect(slot))
     }
   })
+}
+
+function drawReplaceButton(ctx: CanvasRenderingContext2D, r: Slot): void {
+  const radius = r.h / 2
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(r.x + radius, r.y)
+  ctx.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, radius)
+  ctx.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, radius)
+  ctx.arcTo(r.x, r.y + r.h, r.x, r.y, radius)
+  ctx.arcTo(r.x, r.y, r.x + r.w, r.y, radius)
+  ctx.closePath()
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'
+  ctx.fill()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '500 48px -apple-system, BlinkMacSystemFont, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('換照片', r.x + r.w / 2, r.y + r.h / 2)
+  ctx.restore()
 }
 
 export function useCanvasRenderer() {
