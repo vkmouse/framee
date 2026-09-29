@@ -4,11 +4,13 @@ import { iconDownload } from '../utils/icons'
 
 const props = defineProps<{
   onDownload: () => void
+  isBusy?: boolean
 }>()
 
 const isFlashing = ref(false)
 
 function handleDownload() {
+  if (props.isBusy) return
   isFlashing.value = true
   setTimeout(() => { isFlashing.value = false }, 300)
   props.onDownload()
@@ -20,12 +22,13 @@ function handleDownload() {
     <span class="top-bar__name">Framee</span>
     <button
       class="top-bar__dl-btn"
-      :class="{ 'is-flashing': isFlashing }"
+      :class="{ 'is-flashing': isFlashing, 'is-busy': isBusy }"
+      :disabled="isBusy"
       @click="handleDownload"
       aria-label="下載排版圖"
     >
       <span class="top-bar__dl-icon" v-html="iconDownload" />
-      <span>下載</span>
+      <span>{{ isBusy ? '匯出中…' : '下載' }}</span>
     </button>
   </header>
 </template>
@@ -65,6 +68,11 @@ function handleDownload() {
 
 .top-bar__dl-btn.is-flashing {
   background: #444444;
+}
+
+.top-bar__dl-btn.is-busy {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .top-bar__dl-icon {

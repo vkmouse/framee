@@ -12,6 +12,7 @@ import { render } from '../composables/useCanvasRenderer'
 const state = useCanvasState()
 const { imageData } = useImageStore()
 const canvasRef = ref<InstanceType<typeof FrameeCanvas> | null>(null)
+const isExporting = ref(false)
 
 function dataURLToBlob(dataURL: string): Blob {
   const [header, data] = dataURL.split(',')
@@ -22,51 +23,143 @@ function dataURLToBlob(dataURL: string): Blob {
   return new Blob([arr], { type: mime })
 }
 
-async function download() {
-  const canvas = canvasRef.value?.canvasEl
-  if (!canvas) return
-  state.activeSlot = null
-  render(canvas, state, imageData, true)
-
-  const fileName = 'framee_layout.png'
-  const dataURL = canvas.toDataURL('image/png')
-
-  // Try Web Share API — on iOS this allows saving to Photos or sharing
+async function shareOrDownload(blob: Blob, fileName: string, mime: string, shareTitle: string) {
   if (navigator.share) {
-    const blob = dataURLToBlob(dataURL)
-    const file = new File([blob], fileName, { type: 'image/png' })
+    const file = new File([blob], fileName, { type: mime })
 
     if (navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: 'Framee 排版圖' })
+        await navigator.share({ files: [file], title: shareTitle })
         return
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return
         // Non-abort error: fall through to anchor download
       }
-    } else {
-      try {
-        await navigator.share({ title: 'Framee 排版圖', url: window.location.href })
-        return
-      } catch {
-        // Fall through to anchor download
-      }
     }
   }
 
   // Fallback: anchor download
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.download = fileName
-  link.href = dataURL
+  link.href = url
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function getVideoSlots(): HTMLVideoElement[] {
+  const layoutData = imageData[state.activeLayout]
+  if (!layoutData) return []
+  return Object.values(layoutData)
+    .filter((d) => d.mediaType === 'video')
+    .map((d) => d.media as HTMLVideoElement)
+}
+
+function pickRecorderMimeType(): string {
+  const candidates = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4',
+  ]
+  return candidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
+}
+
+async function downloadImage() {
+  const canvas = canvasRef.value?.canvasEl
+  if (!canvas) return
+  render(canvas, state, imageData, true)
+
+  const fileName = 'framee_layout.png'
+  const dataURL = canvas.toDataURL('image/png')
+  await shareOrDownload(dataURLToBlob(dataURL), fileName, 'image/png', 'Framee 排版圖')
+}
+
+async function downloadVideo(videos: HTMLVideoElement[]) {
+  const canvas = canvasRef.value?.canvasEl
+  if (!canvas) return
+
+  const mimeType = pickRecorderMimeType()
+  if (!mimeType) {
+    alert('這個瀏覽器不支援匯出影片，請改用最新版 Chrome 或 Safari')
+    return
+  }
+
+  // Duration of the exported clip = the longest source video.
+  const durations = videos.map((v) => v.duration).filter((d) => Number.isFinite(d))
+  const maxDuration = durations.length ? Math.max(...durations) : 0
+  if (maxDuration <= 0) return
+
+  isExporting.value = true
+
+  try {
+    await Promise.all(
+      videos.map((v) => {
+        v.currentTime = 0
+        return v.play()
+      }),
+    )
+
+    const stream = canvas.captureStream(30)
+    const recorder = new MediaRecorder(stream, { mimeType })
+    const chunks: BlobPart[] = []
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data)
+    }
+
+    const recordingDone = new Promise<Blob>((resolve) => {
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }))
+    })
+
+    recorder.start()
+
+    let rafId = 0
+    const startedAt = performance.now()
+    const tick = () => {
+      render(canvas, state, imageData, true)
+      if (performance.now() - startedAt < maxDuration * 1000) {
+        rafId = requestAnimationFrame(tick)
+      } else {
+        cancelAnimationFrame(rafId)
+        recorder.stop()
+        videos.forEach((v) => v.pause())
+      }
+    }
+    tick()
+
+    const blob = await recordingDone
+    const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
+    await shareOrDownload(blob, `framee_layout.${ext}`, mimeType.split(';')[0]!, 'Framee 排版影片')
+  } finally {
+    videos.forEach((v) => {
+      v.pause()
+      v.currentTime = 0
+    })
+    isExporting.value = false
+  }
+}
+
+async function download() {
+  if (isExporting.value) return
+  const canvas = canvasRef.value?.canvasEl
+  if (!canvas) return
+
+  state.activeSlot = null
+  const videos = getVideoSlots()
+
+  if (videos.length === 0) {
+    await downloadImage()
+  } else {
+    await downloadVideo(videos)
+  }
 }
 </script>
 
 <template>
   <div class="framee-view">
-    <AppTopBar :on-download="download" />
+    <AppTopBar :on-download="download" :is-busy="isExporting" />
 
     <div class="framee-view__canvas-wrap" @click.self="state.activeSlot = null">
       <FrameeCanvas ref="canvasRef" />

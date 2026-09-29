@@ -141,12 +141,22 @@ export function bindGestures(
       return
     }
 
-    const hasImage = !!imageData[state.activeLayout]?.[slot]
-    if (!hasImage) {
+    const data = imageData[state.activeLayout]?.[slot]
+    if (!data) {
       onFileRequest(slot)
     } else if (state.activeSlot !== slot) {
       // Mouse click on a filled slot (touch selects in touchstart) → select it.
       state.activeSlot = slot
+      onRender()
+    } else if (data.mediaType === 'video') {
+      // Tapping an already-selected video slot toggles playback.
+      const video = data.media as HTMLVideoElement
+      if (video.paused) {
+        if (video.ended) video.currentTime = 0
+        void video.play()
+      } else {
+        video.pause()
+      }
       onRender()
     }
   }

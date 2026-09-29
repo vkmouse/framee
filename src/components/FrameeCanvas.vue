@@ -13,11 +13,29 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 let pendingSlot = -1
 let unbindGestures: (() => void) | null = null
+let playbackRafId = 0
 
 function doRender() {
   if (canvasEl.value) {
     render(canvasEl.value, state, imageData)
   }
+}
+
+/** True while any video in the current layout is actively playing. */
+function isAnyVideoPlaying(): boolean {
+  const layoutData = imageData[state.activeLayout]
+  if (!layoutData) return false
+  return Object.values(layoutData).some(
+    (d) => d.mediaType === 'video' && !(d.media as HTMLVideoElement).paused,
+  )
+}
+
+// Continuously repaint while a video is playing so its frames advance on
+// screen; the on-demand `watch`-triggered render alone only draws one frame
+// per state change, not one per video frame.
+function playbackLoop() {
+  if (isAnyVideoPlaying()) doRender()
+  playbackRafId = requestAnimationFrame(playbackLoop)
 }
 
 function requestFile(slot: number) {
@@ -54,11 +72,13 @@ onMounted(() => {
       requestFile,
       doRender,
     )
+    playbackRafId = requestAnimationFrame(playbackLoop)
   }
 })
 
 onUnmounted(() => {
   unbindGestures?.()
+  cancelAnimationFrame(playbackRafId)
 })
 
 // Expose canvas element and render for parent (download)
@@ -77,7 +97,7 @@ defineExpose({ canvasEl, doRender })
     <input
       ref="fileInput"
       type="file"
-      accept="image/*"
+      accept="image/*,video/*"
       class="framee-canvas__file-input"
       @change="onFileChange"
     />
