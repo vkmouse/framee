@@ -10,6 +10,12 @@ interface DragState {
   slot: number
   startX: number
   startY: number
+  originX: number
+  originY: number
+  /** Slot was already selected before this touch began. */
+  wasActive: boolean
+  /** Finger travelled far enough that this is a drag, not a tap. */
+  moved: boolean
 }
 
 interface PinchState {
@@ -20,6 +26,8 @@ interface PinchState {
 }
 
 type TouchState = DragState | PinchState | null
+
+const TAP_SLOP_PX = 8
 
 function getSlotAt(
   clientX: number,
@@ -95,6 +103,7 @@ export function bindGestures(
       }
 
       e.preventDefault()
+      const wasActive = state.activeSlot === slot
       state.activeSlot = slot
       onRender()
       touchState = {
@@ -102,6 +111,10 @@ export function bindGestures(
         slot,
         startX: touch.clientX,
         startY: touch.clientY,
+        originX: touch.clientX,
+        originY: touch.clientY,
+        wasActive,
+        moved: false,
       }
     } else if (e.touches.length === 2) {
       e.preventDefault()
@@ -120,6 +133,16 @@ export function bindGestures(
         initScale: slotData.scale,
       }
     }
+  }
+
+  function togglePlayback(video: HTMLVideoElement) {
+    if (video.paused) {
+      if (video.ended) video.currentTime = 0
+      void video.play()
+    } else {
+      video.pause()
+    }
+    onRender()
   }
 
   function onClick(e: MouseEvent) {
@@ -150,14 +173,7 @@ export function bindGestures(
       onRender()
     } else if (data.mediaType === 'video') {
       // Tapping an already-selected video slot toggles playback.
-      const video = data.media as HTMLVideoElement
-      if (video.paused) {
-        if (video.ended) video.currentTime = 0
-        void video.play()
-      } else {
-        video.pause()
-      }
-      onRender()
+      togglePlayback(data.media as HTMLVideoElement)
     }
   }
 
@@ -171,6 +187,9 @@ export function bindGestures(
     if (touchState.type === 'drag' && e.touches.length === 1) {
       const touch = e.touches[0]
       if (!touch) return
+      if (Math.hypot(touch.clientX - touchState.originX, touch.clientY - touchState.originY) > TAP_SLOP_PX) {
+        touchState.moved = true
+      }
       const dx = (touch.clientX - touchState.startX) * scale
       const dy = (touch.clientY - touchState.startY) * scale
       touchState.startX = touch.clientX
@@ -199,6 +218,13 @@ export function bindGestures(
   }
 
   function onTouchEnd() {
+    // touchstart calls preventDefault() on filled slots, which stops iOS from
+    // synthesizing a click, so a tap on an already-selected video is handled here.
+    const ts = touchState
+    if (ts && ts.type === 'drag' && ts.wasActive && !ts.moved) {
+      const data = imageData[state.activeLayout]?.[ts.slot]
+      if (data?.mediaType === 'video') togglePlayback(data.media as HTMLVideoElement)
+    }
     touchState = null
     buttonTouch = false
   }
