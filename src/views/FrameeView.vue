@@ -55,7 +55,7 @@ function getVideoSlots(): HTMLVideoElement[] {
   return Object.values(layoutData)
     .filter((d) => d.mediaType === 'video')
     .map((d) => d.media as HTMLVideoElement)
-}
+} 
 
 function pickRecorderMimeType(): string {
   const candidates = [
