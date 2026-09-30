@@ -5,14 +5,16 @@ import FrameeCanvas from '../components/FrameeCanvas.vue'
 import AppBottomBar from '../components/AppBottomBar.vue'
 import LayoutDrawer from '../components/LayoutDrawer.vue'
 import BorderDrawer from '../components/BorderDrawer.vue'
+import NoticeSheet from '../components/NoticeSheet.vue'
+import LoadingPill from '../components/LoadingPill.vue'
 import { useCanvasState } from '../composables/useCanvasState'
 import { useImageStore } from '../composables/useImageStore'
 import { render } from '../composables/useCanvasRenderer'
+import { showNotice } from '../composables/useNotice'
 
 const state = useCanvasState()
-const { imageData } = useImageStore()
+const { imageData, loading } = useImageStore()
 const canvasRef = ref<InstanceType<typeof FrameeCanvas> | null>(null)
-const isExporting = ref(false)
 
 function dataURLToBlob(dataURL: string): Blob {
   const [header, data] = dataURL.split(',')
@@ -85,16 +87,26 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
 
   const mimeType = pickRecorderMimeType()
   if (!mimeType) {
-    alert('這個瀏覽器不支援匯出 MP4 影片，請更新 iOS / Safari 或改用最新版 Chrome（126 以上）')
+    showNotice({
+      title: '這個瀏覽器無法匯出影片',
+      message: '匯出 MP4 影片需要較新的瀏覽器。請更新 iOS / Safari，或改用 Chrome 126 以上。',
+    })
     return
   }
 
   // Duration of the exported clip = the longest source video.
   const durations = videos.map((v) => v.duration).filter((d) => Number.isFinite(d))
   const maxDuration = durations.length ? Math.max(...durations) : 0
-  if (maxDuration <= 0) return
+  if (maxDuration <= 0) {
+    showNotice({
+      title: '讀不到影片長度',
+      message: '沒辦法得知影片有多長，所以無法匯出。請重新加入這支影片再試一次。',
+    })
+    return
+  }
 
-  isExporting.value = true
+  state.isExporting = true
+  let stopped = false
 
   try {
     await Promise.all(
@@ -114,8 +126,9 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
       if (e.data.size > 0) chunks.push(e.data)
     }
 
-    const recordingDone = new Promise<Blob>((resolve) => {
+    const recordingDone = new Promise<Blob>((resolve, reject) => {
       recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }))
+      recorder.onerror = () => reject(new Error('MediaRecorder 發生錯誤'))
     })
 
     recorder.start()
@@ -123,12 +136,13 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
     let rafId = 0
     const startedAt = performance.now()
     const tick = () => {
+      if (stopped) return
       render(canvas, state, imageData, true)
       if (performance.now() - startedAt < maxDuration * 1000) {
         rafId = requestAnimationFrame(tick)
       } else {
         cancelAnimationFrame(rafId)
-        recorder.stop()
+        if (recorder.state !== 'inactive') recorder.stop()
         videos.forEach((v) => v.pause())
       }
     }
@@ -137,36 +151,49 @@ async function downloadVideo(videos: HTMLVideoElement[]) {
     const blob = await recordingDone
     await shareOrDownload(blob, 'framee_layout.mp4', 'video/mp4', 'Framee 排版影片')
   } finally {
+    stopped = true
     videos.forEach((v) => {
       v.pause()
       v.currentTime = 0
     })
-    isExporting.value = false
+    state.isExporting = false
   }
 }
 
 async function download() {
-  if (isExporting.value) return
+  if (state.isExporting) return
   const canvas = canvasRef.value?.canvasEl
   if (!canvas) return
 
   state.activeSlot = null
   const videos = getVideoSlots()
 
-  if (videos.length === 0) {
-    await downloadImage()
-  } else {
-    await downloadVideo(videos)
+  try {
+    if (videos.length === 0) {
+      await downloadImage()
+    } else {
+      await downloadVideo(videos)
+    }
+  } catch (err) {
+    showNotice({
+      title: '匯出失敗',
+      message: '匯出中斷了，檔案沒有儲存。請再試一次；影片太長的話，先縮短再匯出。',
+      detail: err instanceof Error ? `${err.name}: ${err.message}` : undefined,
+    })
+  } finally {
+    // The export render draws without placeholders/overlays; bring the preview back.
+    canvasRef.value?.doRender()
   }
 }
 </script>
 
 <template>
   <div class="framee-view">
-    <AppTopBar :on-download="download" :is-busy="isExporting" />
+    <AppTopBar :on-download="download" :is-busy="state.isExporting" />
 
     <div class="framee-view__canvas-wrap" @click.self="state.activeSlot = null">
       <FrameeCanvas ref="canvasRef" />
+      <LoadingPill :active="loading.active" :label="loading.label" />
     </div>
 
     <AppBottomBar />
@@ -179,6 +206,8 @@ async function download() {
     </Transition>
 
     <div class="framee-view__home-ind"></div>
+
+    <NoticeSheet />
   </div>
 </template>
 
@@ -191,6 +220,7 @@ async function download() {
 }
 
 .framee-view__canvas-wrap {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
