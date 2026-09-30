@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useCanvasState } from '../composables/useCanvasState'
 import { iconLayout, iconBorder } from '../utils/icons'
+import { layoutName } from '../utils/layout'
 
 type DrawerType = 'layout' | 'border'
 
@@ -10,78 +12,160 @@ function toggle(type: DrawerType) {
   state.openDrawer = state.openDrawer === type ? null : type
 }
 
-const buttons: { type: DrawerType; icon: string; label: string }[] = [
-  { type: 'layout', icon: iconLayout, label: '版型' },
-  { type: 'border', icon: iconBorder, label: '邊框樣式' },
-]
+// Each tab reports the current setting, so it reads without opening the panel.
+const tabs = computed(() => [
+  {
+    type: 'layout' as DrawerType,
+    icon: iconLayout,
+    label: '版型',
+    value: layoutName(state.activeLayout),
+    swatch: null as string | null,
+  },
+  {
+    type: 'border' as DrawerType,
+    icon: iconBorder,
+    label: '邊框樣式',
+    value: state.borderPx === 0 ? '無邊框' : `${state.borderPx} px`,
+    swatch: state.borderColor as string | null,
+  },
+])
 </script>
 
 <template>
-  <nav class="bottom-bar">
+  <nav class="dock" :class="{ 'is-open': state.openDrawer }" aria-label="編輯工具">
     <button
-      v-for="btn in buttons"
-      :key="btn.type"
-      class="bottom-bar__btn"
-      :class="{ 'is-open': state.openDrawer === btn.type }"
-      @click="toggle(btn.type)"
-      :aria-label="btn.label"
-      :aria-pressed="state.openDrawer === btn.type"
+      v-for="tab in tabs"
+      :key="tab.type"
+      class="dock__tab"
+      :class="{ 'is-current': state.openDrawer === tab.type }"
+      type="button"
+      aria-controls="framee-panel"
+      :aria-expanded="state.openDrawer === tab.type"
+      @click="toggle(tab.type)"
     >
-      <span class="bottom-bar__icon" v-html="btn.icon" />
-      <span class="bottom-bar__label">{{ btn.label }}</span>
+      <span class="dock__icon" aria-hidden="true" v-html="tab.icon" />
+      <span class="dock__text">
+        <span class="dock__label">{{ tab.label }}</span>
+        <span class="dock__value">
+          <i v-if="tab.swatch" class="dock__dot" :style="{ background: tab.swatch }" />
+          {{ tab.value }}
+        </span>
+      </span>
     </button>
   </nav>
 </template>
 
 <style scoped>
-.bottom-bar {
+.dock {
   display: flex;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-md);
   flex-shrink: 0;
+  min-height: var(--dock-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--color-surface);
+  border-top: 0.5px solid var(--color-border);
 }
 
-.bottom-bar__btn {
+.dock__tab {
+  position: relative;
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: var(--spacing-sm) 6px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  border: 0.5px solid var(--color-border);
+  justify-content: center;
+  gap: 10px;
+  padding: 0 var(--spacing-md);
+  background: transparent;
+  border: none;
+  color: var(--color-text-main);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  transition: color 0.2s, background 0.15s;
+}
+
+.dock__tab + .dock__tab {
+  border-left: 0.5px solid var(--color-border);
+}
+
+/* Line on the top edge: ties the tab to the panel that opens right above it. */
+.dock__tab::before {
+  content: '';
+  position: absolute;
+  top: -0.5px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-action);
+  transform: scaleX(0);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dock__tab.is-current::before {
+  transform: scaleX(1);
+}
+
+/* While one panel is open, the other tab steps back. */
+.dock.is-open .dock__tab:not(.is-current) {
   color: var(--color-text-muted);
 }
 
-.bottom-bar__btn:active {
-  transform: scale(0.95);
+.dock__tab:active {
+  background: rgba(0, 0, 0, 0.04);
 }
 
-.bottom-bar__btn.is-open {
-  background: var(--color-action);
-  border-color: var(--color-action);
-  color: rgba(255, 255, 255, 0.8);
+.dock__tab:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: -4px;
 }
 
-.bottom-bar__icon {
+.dock__icon {
   display: flex;
-  align-items: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
-.bottom-bar__icon :deep(svg) {
-  width: 18px;
-  height: 18px;
+.dock__icon :deep(svg) {
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
 }
 
-.bottom-bar__label {
-  font-size: var(--font-size-label);
-  font-weight: 500;
-  letter-spacing: 0.03em;
+.dock__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.dock__label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.dock__value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dock__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock__tab,
+  .dock__tab::before {
+    transition: none;
+  }
 }
 </style>

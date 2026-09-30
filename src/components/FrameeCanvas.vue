@@ -166,6 +166,9 @@ defineExpose({ canvasEl, doRender: paint })
 <style scoped>
 .framee-canvas {
   width: 100%;
+  /* Fit inside the stage: as wide as it allows, but never taller than it. 4:5 → width = 0.8 × height. */
+  width: min(100cqw, 100cqh * 0.8);
+  flex-shrink: 0;
   aspect-ratio: 4 / 5;
   border-radius: 12px;
   overflow: hidden;

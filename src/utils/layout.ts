@@ -8,6 +8,23 @@ export interface Slot {
 const W = 1080
 const H = 1350
 
+/** Canvas size in px; also used by the layout drawer to draw exact thumbnails. */
+export const CANVAS_W = W
+export const CANVAS_H = H
+
+/** Plain-language names, shared by the tool dock and the layout drawer. */
+export const layoutOptions = [
+  { id: 1, name: '單張' },
+  { id: 2, name: '上下兩張' },
+  { id: 3, name: '左二右一' },
+  { id: 4, name: '四宮格' },
+  { id: 5, name: '三列' },
+] as const
+
+export function layoutName(id: number): string {
+  return layoutOptions.find((l) => l.id === id)?.name ?? ''
+}
+
 export function getSlots(layoutId: number, b: number): Slot[] {
   switch (layoutId) {
     case 1:

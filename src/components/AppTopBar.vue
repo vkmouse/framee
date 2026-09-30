@@ -38,8 +38,8 @@ function handleDownload() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-lg);
-  height: var(--header-height);
+  padding: env(safe-area-inset-top, 0px) var(--spacing-lg) 0;
+  height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
   background: var(--color-surface);
   flex-shrink: 0;
 }

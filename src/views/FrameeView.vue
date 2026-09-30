@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import AppTopBar from '../components/AppTopBar.vue'
 import FrameeCanvas from '../components/FrameeCanvas.vue'
 import AppBottomBar from '../components/AppBottomBar.vue'
@@ -15,6 +15,20 @@ import { showNotice } from '../composables/useNotice'
 const state = useCanvasState()
 const { imageData, loading } = useImageStore()
 const canvasRef = ref<InstanceType<typeof FrameeCanvas> | null>(null)
+
+// Keep the last panel mounted while it collapses, so its content doesn't vanish mid-animation.
+const shownDrawer = ref<'layout' | 'border'>(state.openDrawer ?? 'layout')
+watch(
+  () => state.openDrawer,
+  (type) => {
+    if (type) shownDrawer.value = type
+  },
+)
+
+function closeTools() {
+  state.activeSlot = null
+  state.openDrawer = null
+}
 
 function dataURLToBlob(dataURL: string): Blob {
   const [header, data] = dataURL.split(',')
@@ -191,21 +205,20 @@ async function download() {
   <div class="framee-view">
     <AppTopBar :on-download="download" :is-busy="state.isExporting" />
 
-    <div class="framee-view__canvas-wrap" @click.self="state.activeSlot = null">
+    <div class="framee-view__stage" @click.self="closeTools">
       <FrameeCanvas ref="canvasRef" />
       <LoadingPill :active="loading.active" :label="loading.label" />
     </div>
 
-    <AppBottomBar />
-
-    <Transition name="drawer">
-      <div v-if="state.openDrawer" class="framee-view__drawer">
-        <LayoutDrawer v-if="state.openDrawer === 'layout'" />
-        <BorderDrawer v-else-if="state.openDrawer === 'border'" />
+    <!-- Grows out of the top edge of the dock, right where the tap happened. -->
+    <div id="framee-panel" class="framee-view__panel" :class="{ 'is-open': state.openDrawer }">
+      <div class="framee-view__panel-inner">
+        <LayoutDrawer v-if="shownDrawer === 'layout'" />
+        <BorderDrawer v-else />
       </div>
-    </Transition>
+    </div>
 
-    <div class="framee-view__home-ind"></div>
+    <AppBottomBar />
 
     <NoticeSheet />
   </div>
@@ -215,41 +228,52 @@ async function download() {
 .framee-view {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
 }
 
-.framee-view__canvas-wrap {
+/* The stage takes whatever the panel leaves; the canvas is fitted inside it. */
+.framee-view__stage {
   position: relative;
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
-  padding: 10px 14px;
-  background: #E2E2E2;
+  justify-content: center;
+  padding: 12px 14px;
+  background: var(--color-stage);
+  container-type: size;
 }
 
-.framee-view__drawer {
-  height: var(--drawer-height);
-  overflow: hidden;
+/* Height opens from 0 to the panel's own height, anchored to the dock below. */
+.framee-view__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  flex-shrink: 0;
+  visibility: hidden;
   background: var(--color-surface);
-  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
-  flex-shrink: 0;
+  transition:
+    grid-template-rows var(--drawer-anim-close),
+    visibility 0s linear 280ms;
 }
 
-.framee-view__home-ind {
-  height: 30px;
-  flex-shrink: 0;
+.framee-view__panel.is-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--drawer-anim-open),
+    visibility 0s;
 }
 
-/* Drawer slide-up animation */
-.drawer-enter-active {
-  transition: transform var(--drawer-anim-open);
+.framee-view__panel-inner {
+  min-height: 0;
+  overflow: hidden;
 }
-.drawer-leave-active {
-  transition: transform var(--drawer-anim-close);
-}
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateY(100%);
+
+@media (prefers-reduced-motion: reduce) {
+  .framee-view__panel,
+  .framee-view__panel.is-open {
+    transition: none;
+  }
 }
 </style>

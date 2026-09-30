@@ -28,7 +28,11 @@
 
   /* 版面高度 */
   --header-height: 52px;
-  --drawer-height: 170px;
+  --dock-height:   58px;
+  --drawer-height: 132px;
+
+  /* 工作區舞台（畫布周圍的底色） */
+  --color-stage: #e2e2e2;
 
   /* 動畫 */
   --drawer-anim-open:  320ms cubic-bezier(0.4, 0, 0.2, 1);

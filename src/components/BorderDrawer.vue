@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useCanvasState } from '../composables/useCanvasState'
+import { iconPalette } from '../utils/icons'
 
 const state = useCanvasState()
+
+const MAX_BORDER = 80
 
 interface Swatch {
   hex: string
@@ -18,75 +21,70 @@ const swatches: Swatch[] = [
   { hex: '#b8cce4', label: '淺藍' },
 ]
 
-const customColor = ref(state.borderColor)
-const activePreset = ref(
-  swatches.some((s) => s.hex === state.borderColor) ? state.borderColor : null,
+// Derived from the shared state, so the highlight can never drift from the canvas.
+const activePreset = computed(
+  () => swatches.find((s) => s.hex === state.borderColor.toLowerCase())?.hex ?? null,
 )
+const isCustom = computed(() => activePreset.value === null)
 
-function selectSwatch(hex: string) {
-  state.borderColor = hex
-  activePreset.value = hex
-  customColor.value = hex
-}
+const fill = computed(() => `${(state.borderPx / MAX_BORDER) * 100}%`)
 
 function onCustomInput(e: Event) {
-  const val = (e.target as HTMLInputElement).value
-  state.borderColor = val
-  customColor.value = val
-  activePreset.value = null
+  state.borderColor = (e.target as HTMLInputElement).value
 }
 </script>
 
 <template>
   <div class="border-drawer">
-    <div class="border-drawer__handle"></div>
-
-    <div class="border-drawer__section">
-      <p class="border-drawer__title">邊框寬度</p>
-      <div class="border-drawer__slider-row">
-        <input
-          class="border-drawer__slider"
-          type="range"
-          min="0"
-          max="80"
-          step="1"
-          :value="state.borderPx"
-          @input="state.borderPx = Number(($event.target as HTMLInputElement).value)"
-          aria-label="邊框寬度"
-        />
-        <span class="border-drawer__val">{{ state.borderPx }} px</span>
-      </div>
+    <div class="border-drawer__row">
+      <span id="border-width-label" class="border-drawer__label">寬度</span>
+      <input
+        class="border-drawer__slider"
+        type="range"
+        min="0"
+        :max="MAX_BORDER"
+        step="1"
+        :value="state.borderPx"
+        :style="{ '--fill': fill }"
+        aria-labelledby="border-width-label"
+        @input="state.borderPx = Number(($event.target as HTMLInputElement).value)"
+      />
+      <output class="border-drawer__val" for="border-width-label">{{ state.borderPx }} px</output>
     </div>
 
-    <div class="border-drawer__divider"></div>
-
-    <div class="border-drawer__section">
-      <p class="border-drawer__title">邊框顏色</p>
-      <div class="border-drawer__color-row">
+    <div class="border-drawer__row">
+      <span id="border-color-label" class="border-drawer__label">顏色</span>
+      <div class="border-drawer__swatches" role="group" aria-labelledby="border-color-label">
         <button
           v-for="swatch in swatches"
           :key="swatch.hex"
           class="border-drawer__swatch"
-          :class="{
-            'is-active': activePreset === swatch.hex,
-            'is-white': swatch.hex === '#ffffff',
-          }"
+          :class="{ 'is-active': activePreset === swatch.hex }"
           :style="{ background: swatch.hex }"
-          @click="selectSwatch(swatch.hex)"
+          type="button"
           :aria-label="swatch.label"
           :aria-pressed="activePreset === swatch.hex"
+          @click="state.borderColor = swatch.hex"
         ></button>
 
-        <div class="border-drawer__custom">
-          <span class="border-drawer__custom-label">自訂</span>
+        <!-- Any colour: the native picker sits invisibly on top of the swatch face. -->
+        <label class="border-drawer__custom" :class="{ 'is-active': isCustom }">
+          <span class="border-drawer__ring">
+            <span
+              class="border-drawer__core"
+              :style="isCustom ? { background: state.borderColor } : undefined"
+            >
+              <span v-if="!isCustom" class="border-drawer__pick" aria-hidden="true" v-html="iconPalette" />
+            </span>
+          </span>
           <input
+            class="border-drawer__picker"
             type="color"
-            class="border-drawer__custom-input"
-            :value="customColor"
-            @input="onCustomInput"
+            :value="state.borderColor"
             aria-label="自訂顏色"
+            @input="onCustomInput"
           />
-        </div>
+        </label>
       </div>
     </div>
   </div>
@@ -94,112 +92,215 @@ function onCustomInput(e: Event) {
 
 <style scoped>
 .border-drawer {
-  padding: 14px var(--spacing-lg) var(--spacing-lg);
   height: var(--drawer-height);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.border-drawer__handle {
-  width: 36px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.15);
-  margin: 0 auto 12px;
-  flex-shrink: 0;
-}
-
-.border-drawer__section {
-  flex: 1;
+  padding: 0 var(--spacing-lg);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 8px;
 }
 
-.border-drawer__divider {
-  height: 0.5px;
-  background: var(--color-border);
-  margin: 8px 0;
-  flex-shrink: 0;
-}
-
-.border-drawer__title {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-muted);
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-/* Slider row */
-.border-drawer__slider-row {
+.border-drawer__row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  height: 44px;
 }
 
+.border-drawer__label {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: var(--font-size-btn);
+  color: var(--color-text-muted);
+}
+
+/* Width slider */
 .border-drawer__slider {
   flex: 1;
-  accent-color: var(--color-action);
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: pan-y;
+}
+
+.border-drawer__slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--color-action) var(--fill),
+    var(--color-border-em) var(--fill)
+  );
+}
+
+.border-drawer__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-action);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.border-drawer__slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--color-action) var(--fill),
+    var(--color-border-em) var(--fill)
+  );
+}
+
+.border-drawer__slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-action);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.border-drawer__slider:focus-visible {
+  outline: none;
+}
+
+.border-drawer__slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px dashed var(--color-action);
+  outline-offset: 3px;
+}
+
+.border-drawer__slider:focus-visible::-moz-range-thumb {
+  outline: 2px dashed var(--color-action);
+  outline-offset: 3px;
 }
 
 .border-drawer__val {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-main);
-  min-width: 38px;
+  width: 48px;
+  flex-shrink: 0;
   text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
 }
 
-/* Color row */
-.border-drawer__color-row {
+/* Colour swatches */
+.border-drawer__swatches {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.border-drawer__swatch,
+.border-drawer__custom {
+  flex: 1 1 0;
+  max-width: 36px;
+  aspect-ratio: 1;
+  border-radius: 50%;
 }
 
 .border-drawer__swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  transition: border-color 0.15s;
   padding: 0;
+  border: none;
+  cursor: pointer;
+  /* The hairline keeps white and cream visible against the white panel. */
+  box-shadow: inset 0 0 0 0.5px var(--color-border-em);
+  transition: box-shadow 0.15s, transform 0.15s;
 }
 
-.border-drawer__swatch.is-white {
-  border-color: rgba(0, 0, 0, 0.18);
+.border-drawer__swatch:active {
+  transform: scale(0.92);
 }
 
 .border-drawer__swatch.is-active {
-  border-color: var(--color-action);
-  outline: 2px solid #fff;
-  outline-offset: -4px;
+  box-shadow:
+    inset 0 0 0 0.5px var(--color-border-em),
+    0 0 0 2px var(--color-surface),
+    0 0 0 3.5px var(--color-action);
 }
 
+.border-drawer__swatch:focus-visible {
+  outline: 2px dashed var(--color-action);
+  outline-offset: 3px;
+}
+
+/* Custom colour: a spectrum ring around a plain core (or the chosen colour). */
 .border-drawer__custom {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-}
-
-.border-drawer__custom-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.border-drawer__custom-input {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-border);
-  padding: 0;
+  position: relative;
   cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.border-drawer__custom:active {
+  transform: scale(0.92);
+}
+
+.border-drawer__custom.is-active {
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 3.5px var(--color-action);
+}
+
+.border-drawer__ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  border-radius: 50%;
+  background: conic-gradient(#f26d6d, #f2c76d, #8fd97a, #6dc9f2, #8a7cf2, #e97cc4, #f26d6d);
+}
+
+.border-drawer__core {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 0.5px var(--color-border-em);
+}
+
+.border-drawer__pick {
+  display: flex;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-main);
+}
+
+.border-drawer__pick :deep(svg) {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
+.border-drawer__picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.border-drawer__custom:has(.border-drawer__picker:focus-visible) {
+  outline: 2px dashed var(--color-action);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .border-drawer__swatch,
+  .border-drawer__custom {
+    transition: none;
+  }
 }
 </style>
